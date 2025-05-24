@@ -1,90 +1,68 @@
-import os
-import time
-import logging
 import requests
 from bs4 import BeautifulSoup
-from telegram import Bot
+import datetime
+import time
+import os
 
-# Logging ayarları
-logging.basicConfig(
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+# Telegram bilgileriniz (Render ortam değişkenlerinden alınıyor)
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-logger = logging.getLogger(__name__)
+# Daha önce görülen tarihler
+known_dates = set()
 
-# Çevresel değişkenlerden Telegram bilgilerini al
-TELEGRAM_TOKEN = os.getenv("8132663035:AAHsvg_CzX8d7kWHjt6uYzVKYt94Nni6iMc")
-CHAT_ID = os.getenv("946111573")
+# Web sayfası URL'si
+URL = "https://www.tcf.gov.tr/faaliyetler/"
 
-if not TELEGRAM_TOKEN or not CHAT_ID:
-    logger.error("TELEGRAM_TOKEN ve CHAT_ID çevresel değişkenleri tanımlanmalı!")
-    exit(1)
+# Kurs sayfasını çek ve yeni tarihleri bul
+def fetch_course_dates():
+    response = requests.get(URL)
+    soup = BeautifulSoup(response.content, "html.parser")
+    
+    # Tüm metinlerden tarihleri ayıkla
+    raw_text = soup.get_text()
+    dates = set()
 
-bot = Bot(token=8132663035:AAHsvg_CzX8d7kWHjt6uYzVKYt94Nni6iMc)
+    for part in raw_text.split():
+        try:
+            # Tarih formatı örneği: 12–17 Mayıs 2025 veya 12-17 Mayıs 2025
+            if any(month in part for month in ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz",
+                                               "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]):
+                dates.add(part)
+        except Exception:
+            continue
 
-URL = "https://www.tcf.gov.tr/branslar/pilates/#kurs"
-Pilates | Branşlar | Türkiye Cimnastik Federasyonu - TCF
-Tanıtım. Pilates, Joseph Pilates’ in “kontroloji” adını verdiği metodu, zihin ve beden bütünlüğü öngören, denge nefes ve hareket sistemlerinin bir sentezidir.
-www.tcf.gov.tr
-"
-previous_courses = []
+    return dates
 
-def get_courses():
-    try:
-        response = requests.get(URL)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
+# Telegram'a mesaj gönder
+def send_telegram_message(message):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": CHAT_ID, "text": message}
+    requests.post(url, data=payload)
 
-        kurslar = []
-        kurs_container = soup.find("div", id="kurs")
-        if not kurs_container:
-            logger.warning("Kurs container bulunamadı, sayfa yapısı değişmiş olabilir.")
-            return []
+# Ana döngü
+def monitor():
+    global known_dates
 
-        for kurs in kurs_container.find_all("li"):
-            kurs_text = kurs.get_text(strip=True)
-            if kurs_text:
-                kurslar.append(kurs_text)
-
-        return kurslar
-
-    except Exception as e:
-        logger.error(f"Kurslar alınırken hata: {e}")
-        return []
-
-def check_new_courses():
-    global previous_courses
-    current_courses = get_courses()
-    if not current_courses:
-        logger.info("Kurslar alınamadı veya boş döndü.")
-        return
-
-    new_courses = [kurs for kurs in current_courses if kurs not in previous_courses]
-
-    if new_courses:
-        for kurs in new_courses:
-            message = f"Yeni Pilates kursu eklendi:\n{kurs}"
-            try:
-                bot.send_message(chat_id=CHAT_ID, text=message)
-                logger.info(f"Bildirim gönderildi: {kurs}")
-            except Exception as e:
-                logger.error(f"Telegram mesaj gönderilirken hata: {e}")
-        previous_courses = current_courses
-    else:
-        logger.info("Yeni kurs bulunamadı.")
-
-def main():
-    global previous_courses
-    previous_courses = get_courses()
-    if not previous_courses:
-        logger.error("İlk kurslar alınamadı. Bot kapanıyor.")
-        return
-
-    logger.info("Bot başladı, kurslar takip ediliyor...")
     while True:
-        check_new_courses()
-        time.sleep(3600)  # 1 saatte bir kontrol
+        try:
+            current_dates = fetch_course_dates()
+
+            # Yeni tarihleri bul
+            new_dates = current_dates - known_dates
+
+            # Eğer yeni tarih varsa ve ileri tarihse mesaj gönder
+            for date in new_dates:
+                if any(str(yil) in date for yil in range(datetime.datetime.now().year, 2100)):
+                    send_telegram_message(f"Yeni Pilates kursu eklendi: {date}")
+                    known_dates.add(date)
+
+        except Exception as e:
+            send_telegram_message(f"Hata oluştu: {str(e)}")
+
+        # 1 saat bekle (Render'da CRON job ya da worker olarak ayarlanabilir)
+        time.sleep(3600)
 
 if __name__ == "__main__":
-    main()
+    known_dates = fetch_course_dates()
+    monitor()
