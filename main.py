@@ -24,14 +24,11 @@ def fetch_course_dates():
     dates = set()
 
     for part in raw_text.split():
-        try:
-            if any(month in part for month in [
-                "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", 
-                "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
-            ]):
-                dates.add(part)
-        except Exception:
-            continue
+        if any(month in part for month in [
+            "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", 
+            "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
+        ]):
+            dates.add(part)
 
     return dates
 
@@ -51,4 +48,17 @@ def monitor():
             new_dates = current_dates - known_dates
 
             for date in new_dates:
-                if any(str(yil) in
+                # İleri tarih mi kontrolü (örn: 2025 veya sonrası)
+                if any(str(year) in date for year in range(datetime.datetime.now().year, 2100)):
+                    send_telegram_message(f"Yeni Pilates kursu eklendi: {date}")
+                    known_dates.add(date)
+
+        except Exception as e:
+            send_telegram_message(f"Hata oluştu: {str(e)}")
+
+        time.sleep(3600)  # 1 saat bekle
+
+if __name__ == "__main__":
+    known_dates = fetch_course_dates()
+    print("Bot çalışıyor. İlk tarama yapıldı.")
+    monitor()
