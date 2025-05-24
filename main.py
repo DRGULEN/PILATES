@@ -39,7 +39,7 @@ NameError: name 'os' is not defined. Did you forget to import 'os'?
 >>> def get_courses():
 ...         response = requests.get(URL)
 ...             soup = BeautfulSoup(response.text, "html.parser")
-...                 kurslar = ]
+...                 kurslar = []
 ...
   File "<python-input-10>", line 3
     soup = BeautfulSoup(response.text, "html.parser")
