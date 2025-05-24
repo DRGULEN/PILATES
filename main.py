@@ -23,7 +23,7 @@ if not TELEGRAM_TOKEN or not CHAT_ID:
 
 bot = Bot(token=8132663035:AAHsvg_CzX8d7kWHjt6uYzVKYt94Nni6iMc)
 
-URL = "https://www.tcf.gov.tr/branslar/pilates/#kurs
+URL = "https://www.tcf.gov.tr/branslar/pilates/#kurs"
 Pilates | Branşlar | Türkiye Cimnastik Federasyonu - TCF
 Tanıtım. Pilates, Joseph Pilates’ in “kontroloji” adını verdiği metodu, zihin ve beden bütünlüğü öngören, denge nefes ve hareket sistemlerinin bir sentezidir.
 www.tcf.gov.tr
